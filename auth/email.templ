@@ -1,0 +1,173 @@
+package auth
+
+import (
+	"os"
+	"time"
+    "strconv"
+)
+
+var (
+    year = strconv.Itoa(time.Now().Year())
+    company = os.Getenv("COMPANY_NAME")
+)
+
+templ EmailBaseTemplate(title string, body templ.Component) {
+	<!doctype html>
+	<html>
+
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>{title}</title>
+
+        <style>
+            @import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
+
+        /* Add inline styles for email compatibility */
+        body {
+            background-color: #f3f4f6;
+            font-family: 'Arial', sans-serif;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #3b82f6;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        </style>
+
+	</head>
+
+	<body>
+		@body
+	</body>
+
+	</html>
+}
+
+templ EmailVerification(route string) {
+    <div class="email-container mx-auto p-6">
+        <div class="text-center">
+            <h1 class="text-xl font-bold text-gray-800">Verify Your Email Address</h1>
+        </div>
+        <div class="mt-6">
+            <p class="text-gray-600 text-sm">
+                Thank you for signing up! Please verify your email address to complete your registration.
+            </p>
+        </div>
+        <div class="mt-6 text-center">
+            <a href={templ.SafeURL(route)} class="btn-primary">Verify Email</a>
+        </div>
+        <div class="mt-6 text-sm text-gray-500">
+            <p>If you didn’t sign up for this account, you can safely ignore this email.</p>
+        </div>
+        <div class="mt-6 text-center text-xs text-gray-400">
+            <p>&copy; {year} {company}. All rights reserved.</p>
+        </div>
+    </div>
+}
+
+templ ChangeEmailVerification(route string) {
+    <div class="email-container mx-auto p-6">
+        <div class="text-center">
+            <h1 class="text-xl font-bold text-gray-800">Change Your Email Address</h1>
+        </div>
+        <div class="mt-6">
+            <p class="text-gray-600 text-sm">
+                You are receiving this email because you have requested to change your email address attributed to your account. 
+				Click on the link below to verify that you wish to make this changes
+            </p>
+        </div>
+        <div class="mt-6 text-center">
+            <a href={templ.SafeURL(route)} class="btn-primary">Change Email</a>
+        </div>
+        <div class="mt-6 text-sm text-gray-500">
+            <p>If you did not request to change your email address, you can safely ignore this email.</p>
+        </div>
+        <div class="mt-6 text-center text-xs text-gray-400">
+            <p>&copy; {year} {company}. All rights reserved.</p>
+        </div>
+    </div>
+}
+
+templ ChangePasswordVerifcation(route string) {
+    <div class="email-container mx-auto p-6">
+        <div class="text-center">
+            <h1 class="text-xl font-bold text-gray-800">Change Your Password</h1>
+        </div>
+        <div class="mt-6">
+            <p class="text-gray-600 text-sm">
+                You are receiving this email because you have requested to change your Password. 
+				Click on the link below to verify that you wish to make this changes
+            </p>
+        </div>
+        <div class="mt-6 text-center">
+            <a href={templ.SafeURL(route)} class="btn-primary">Change Password</a>
+        </div>
+        <div class="mt-6 text-sm text-gray-500">
+            <p>If you did not request to change your password, you can safely ignore this email.</p>
+        </div>
+        <div class="mt-6 text-center text-xs text-gray-400">
+            <p>&copy; {year} {company}. All rights reserved.</p>
+        </div>
+    </div>
+}
+
+templ ResetPasswordVerification(route string) {
+    <div class="email-container mx-auto p-6">
+        <div class="text-center">
+            <h1 class="text-xl font-bold text-gray-800">Reset Your Password</h1>
+        </div>
+        <div class="mt-6">
+            <p class="text-gray-600 text-sm">
+                You are receiving this email because you have requested to Reset your Password. 
+				Click on the link below to verify that you wish to make this changes
+            </p>
+        </div>
+        <div class="mt-6 text-center">
+            <a href={templ.SafeURL(route)} class="btn-primary">Reset Password</a>
+        </div>
+        <div class="mt-6 text-sm text-gray-500">
+            <p>If you did not request to reset your password, you can safely ignore this email.</p>
+        </div>
+        <div class="mt-6 text-center text-xs text-gray-400">
+            <p>&copy; {year} {company}. All rights reserved.</p>
+        </div>
+    </div>
+}
+
+templ DeleteUserVerification(route string) {
+    <div class="email-container mx-auto p-6">
+        <div class="text-center">
+            <h1 class="text-xl font-bold text-gray-800">Delete User Account</h1>
+        </div>
+        <div class="mt-6">
+            <p class="text-gray-600 text-sm">
+                You are receiving this email because you have requested to delete your user account. 
+				Click on the link below to verify that you wish to make this changes
+            </p>
+        </div>
+        <div class="mt-6 text-center">
+            <a href={templ.SafeURL(route)} class="btn-primary">Delete User Account</a>
+        </div>
+        <div class="mt-6 text-sm text-gray-500">
+            <p>If you did not request to delete user account, you can safely ignore this email.</p>
+        </div>
+        <div class="mt-6 text-center text-xs text-gray-400">
+            <p>&copy; {year} {company}. All rights reserved.</p>
+        </div>
+    </div>
+}
