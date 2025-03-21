@@ -34,8 +34,14 @@ var (
 
 	UserReadView = View{
 		Route:       "/api/read",
-		Middlewares: []func(http.Handler) http.Handler{RequireAdmin},
+		Middlewares: []func(http.Handler) http.Handler{RequireAuth},
 		Handler:     http.HandlerFunc(UserRead),
+	}
+
+	AuthUserReadView = View{
+		Route:       "/api/current-user",
+		Middlewares: []func(http.Handler) http.Handler{RequireAuth},
+		Handler:     http.HandlerFunc(AuthUserRead),
 	}
 
 	UserListView = View{
@@ -121,7 +127,7 @@ func AuthLogin(queries *models.Queries, ctx context.Context, data map[string]str
 	user, err := queries.UserLoginRead(ctx, data["email"])
 
 	if err != nil {
-		return "", http.StatusInternalServerError, fmt.Errorf("%s, (%s)", data["email"], err.Error())
+		return "", http.StatusInternalServerError, err
 	}
 
 	err = queries.LogCreate(ctx, models.LogCreateParams{

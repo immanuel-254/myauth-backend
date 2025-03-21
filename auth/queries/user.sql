@@ -11,7 +11,7 @@ INSERT INTO users (
     RETURNING id, email, created_at, updated_at;
 
 -- name: UserList :many
-SELECT id, email, created_at, updated_at FROM users
+SELECT id, email, isactive, isadmin, isstaff, created_at, updated_at FROM users
 ORDER BY id ASC;
 
 -- name: UserRead :one

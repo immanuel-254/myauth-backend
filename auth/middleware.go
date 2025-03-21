@@ -32,9 +32,9 @@ func ReadUser(next http.Handler) http.Handler {
 
 		session, err := queries.SessionRead(ctx, token)
 
-		if err != nil {
-			SendData(http.StatusInternalServerError, map[string]any{"error": err.Error()}, w, r)
-
+		code, errstring := SqlErrorHandler(err, w, r)
+		if code != http.StatusOK {
+			SendData(code, map[string]string{"error": errstring}, w, r)
 			return
 		}
 
@@ -45,8 +45,9 @@ func ReadUser(next http.Handler) http.Handler {
 
 		user, err := queries.AuthUserRead(ctx, session.UserID)
 
-		if err != nil {
-			SendData(http.StatusInternalServerError, map[string]any{"error": err.Error()}, w, r)
+		code, errstring = SqlErrorHandler(err, w, r)
+		if code != http.StatusOK {
+			SendData(code, map[string]string{"error": errstring}, w, r)
 			return
 		}
 
@@ -72,14 +73,15 @@ func RequireAuth(next http.Handler) http.Handler {
 
 		// 2. If no token found in either place, return error
 		if token == "" {
-			SendData(http.StatusForbidden, map[string]any{"error": "Missing auth token"}, w, r)
+			SendData(http.StatusForbidden, map[string]any{"error": "missing auth token"}, w, r)
 			return
 		}
 
 		session, err := queries.SessionRead(ctx, token)
 
-		if err != nil {
-			SendData(http.StatusInternalServerError, map[string]any{"error": err.Error()}, w, r)
+		code, errstring := SqlErrorHandler(err, w, r)
+		if code != http.StatusOK {
+			SendData(code, map[string]string{"error": errstring}, w, r)
 			return
 		}
 
@@ -90,11 +92,11 @@ func RequireAuth(next http.Handler) http.Handler {
 
 		user, err := queries.AuthUserRead(ctx, session.UserID)
 
-		if err != nil {
-			SendData(http.StatusInternalServerError, map[string]any{"error": err.Error()}, w, r)
+		code, errstring = SqlErrorHandler(err, w, r)
+		if code != http.StatusOK {
+			SendData(code, map[string]string{"error": errstring}, w, r)
 			return
 		}
-
 		if !user.Isactive.Bool {
 			SendData(http.StatusForbidden, map[string]any{"error": "inactive user"}, w, r)
 			return
@@ -117,14 +119,15 @@ func RequireStaff(next http.Handler) http.Handler {
 
 		// 2. If no token found in either place, return error
 		if token == "" {
-			SendData(http.StatusForbidden, map[string]any{"error": "Missing auth token"}, w, r)
+			SendData(http.StatusForbidden, map[string]any{"error": "missing auth token"}, w, r)
 			return
 		}
 
 		session, err := queries.SessionRead(ctx, r.Header.Get("auth"))
 
-		if err != nil {
-			SendData(http.StatusInternalServerError, map[string]any{"error": err.Error()}, w, r)
+		code, errstring := SqlErrorHandler(err, w, r)
+		if code != http.StatusOK {
+			SendData(code, map[string]string{"error": errstring}, w, r)
 			return
 		}
 
@@ -135,8 +138,9 @@ func RequireStaff(next http.Handler) http.Handler {
 
 		user, err := queries.AuthUserRead(ctx, session.UserID)
 
-		if err != nil {
-			SendData(http.StatusInternalServerError, map[string]any{"error": err.Error()}, w, r)
+		code, errstring = SqlErrorHandler(err, w, r)
+		if code != http.StatusOK {
+			SendData(code, map[string]string{"error": errstring}, w, r)
 			return
 		}
 
@@ -167,14 +171,15 @@ func RequireAdmin(next http.Handler) http.Handler {
 
 		// 2. If no token found in either place, return error
 		if token == "" {
-			SendData(http.StatusForbidden, map[string]any{"error": "Missing auth token"}, w, r)
+			SendData(http.StatusForbidden, map[string]any{"error": "missing auth token"}, w, r)
 			return
 		}
 
 		session, err := queries.SessionRead(ctx, token)
 
-		if err != nil {
-			SendData(http.StatusInternalServerError, map[string]any{"error": err.Error()}, w, r)
+		code, errstring := SqlErrorHandler(err, w, r)
+		if code != http.StatusOK {
+			SendData(code, map[string]string{"error": errstring}, w, r)
 			return
 		}
 
@@ -185,8 +190,9 @@ func RequireAdmin(next http.Handler) http.Handler {
 
 		user, err := queries.AuthUserRead(ctx, session.UserID)
 
-		if err != nil {
-			SendData(http.StatusInternalServerError, map[string]any{"error": err.Error()}, w, r)
+		code, errstring = SqlErrorHandler(err, w, r)
+		if code != http.StatusOK {
+			SendData(code, map[string]string{"error": errstring}, w, r)
 			return
 		}
 

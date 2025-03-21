@@ -12,8 +12,11 @@ type View struct {
 
 // Middleware chaining
 func chainMiddlewares(handler http.Handler, middlewares []func(http.Handler) http.Handler) http.Handler {
-	for i := 0; i < len(middlewares); i++ { // Apply middlewares in normal order
-		handler = middlewares[i](handler)
+	if len(middlewares) != 0 {
+		for i := 0; i < len(middlewares); i++ { // Apply middlewares in normal order
+			handler = middlewares[i](handler)
+		}
+		return handler
 	}
 	return handler
 }

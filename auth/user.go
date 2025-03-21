@@ -14,7 +14,7 @@ import (
 
 func Signup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -23,7 +23,11 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 
 	// get data
 	data := make(map[string]string)
-	GetData(&data, w, r)
+	code, errstring := GetData(&data, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 
 	// check if password match
 	if data["password"] != data["confirm-password"] {
@@ -34,8 +38,9 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	// hash password
 	hash, err := HashPassword(data["password"])
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -49,22 +54,28 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	Logging(queries, ctx, "user", "create", user.ID, 0, w, r)
+	status := Logging(queries, ctx, "user", "create", user.ID, 0, w, r)
+
+	if status != http.StatusOK {
+		return
+	}
 
 	// send email
 	one_time, err := GenerateOneTimeToken(32, uint(user.ID))
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	status := SendEmail(user.Email, "Activate Your Email", fmt.Sprintf("%s/activate/?token=%s", os.Getenv("DOMAIN"), one_time), EmailVerificationTemplate, w, r)
+	status = SendEmail(user.Email, "Activate Your Email", fmt.Sprintf("%s/activate/?token=%s", os.Getenv("DOMAIN"), one_time), EmailVerificationTemplate, w, r)
 
 	if status != http.StatusOK {
 		return
@@ -77,7 +88,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 
 func ActivateEmail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -89,7 +100,7 @@ func ActivateEmail(w http.ResponseWriter, r *http.Request) {
 	user_id, err := VerifyToken(token)
 
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "Invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
 		return
 	}
 
@@ -103,12 +114,16 @@ func ActivateEmail(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	Logging(queries, ctx, "user", "update", user.ID, int64(user_id), w, r)
+	status := Logging(queries, ctx, "user", "update", user.ID, int64(user_id), w, r)
+	if status != http.StatusOK {
+		return
+	}
 
 	resp := map[string]interface{}{"message": "email has been verified"}
 	SendData(http.StatusOK, resp, w, r)
@@ -116,7 +131,7 @@ func ActivateEmail(w http.ResponseWriter, r *http.Request) {
 
 func UserRead(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -124,13 +139,14 @@ func UserRead(w http.ResponseWriter, r *http.Request) {
 
 	user_id, err := strconv.ParseInt(queryParams.Get("user"), 10, 64)
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
 	if user_id == 0 {
-		SendData(http.StatusNotFound, map[string]string{"error": "Not Found"}, w, r)
+		SendData(http.StatusNotFound, map[string]string{"error": "user not found"}, w, r)
 		return
 	}
 
@@ -148,19 +164,44 @@ func UserRead(w http.ResponseWriter, r *http.Request) {
 
 	user, err := queries.UserRead(ctx, user_id)
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	Logging(queries, ctx, "user", "read", user.ID, authUser.ID, w, r)
+	status := Logging(queries, ctx, "user", "read", user.ID, authUser.ID, w, r)
+
+	if status != http.StatusOK {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"user": user}, w, r)
 }
 
+func AuthUserRead(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		return
+	}
+
+	ctx := r.Context()
+
+	auth := ctx.Value(Current_user)
+
+	if auth == nil {
+		SendData(http.StatusNotFound, map[string]string{"error": "there is no current user"}, w, r)
+		return
+	}
+
+	authUser := auth.(models.AuthUserReadRow)
+
+	SendData(http.StatusOK, map[string]interface{}{"current_user": authUser}, w, r)
+}
+
 func UserList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -179,12 +220,16 @@ func UserList(w http.ResponseWriter, r *http.Request) {
 
 	users, err := queries.UserList(ctx)
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	Logging(queries, ctx, "user", "list", 0, authUser.ID, w, r)
+	status := Logging(queries, ctx, "user", "list", 0, authUser.ID, w, r)
+	if status != http.StatusOK {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"users": users}, w, r)
 }
@@ -192,13 +237,17 @@ func UserList(w http.ResponseWriter, r *http.Request) {
 // Require auth
 func ChangeEmailRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
 	// get data
 	data := make(map[string]string)
-	GetData(&data, w, r)
+	code, errstring := GetData(&data, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 
 	ctx := r.Context()
 
@@ -215,12 +264,14 @@ func ChangeEmailRequest(w http.ResponseWriter, r *http.Request) {
 		SendData(http.StatusBadRequest, map[string]string{"error": "invalid email"}, w, r)
 		return
 	}
+	queries := models.New(database.DB)
 
 	// send email
 	one_time, err := GenerateOneTimeToken(32, uint(authUser.ID))
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -229,8 +280,11 @@ func ChangeEmailRequest(w http.ResponseWriter, r *http.Request) {
 	if status != http.StatusOK {
 		return
 	}
-	queries := models.New(database.DB)
-	AuthLogout(queries, ctx, w, r)
+	code, errstring = AuthLogout(queries, ctx, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 
 	SendData(status, map[string]interface{}{"message": "email sent"}, w, r)
 
@@ -238,7 +292,7 @@ func ChangeEmailRequest(w http.ResponseWriter, r *http.Request) {
 
 func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -250,7 +304,7 @@ func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 	user_id, err := VerifyToken(token)
 
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "Invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
 		return
 	}
 
@@ -259,7 +313,18 @@ func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 
 	// get data
 	data := make(map[string]string)
-	GetData(&data, w, r)
+	code, errstring := GetData(&data, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
+
+	usercheck, _ := queries.UserLoginRead(ctx, data["email"])
+
+	if data["email"] == usercheck.Email {
+		SendData(http.StatusBadRequest, map[string]string{"error": "email already exists"}, w, r)
+		return
+	}
 
 	user, err := queries.UserUpdateEmail(ctx, models.UserUpdateEmailParams{
 		ID:        int64(user_id),
@@ -267,8 +332,9 @@ func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -278,15 +344,17 @@ func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
 	one_time, err := GenerateOneTimeToken(32, uint(user.ID))
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -296,14 +364,17 @@ func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Logging(queries, ctx, "user", "update", user.ID, int64(user_id), w, r)
+	status = Logging(queries, ctx, "user", "update", user.ID, int64(user_id), w, r)
+	if status != http.StatusOK {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"message": "email updated successfully"}, w, r)
 }
 
 func ChangePasswordRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -321,8 +392,9 @@ func ChangePasswordRequest(w http.ResponseWriter, r *http.Request) {
 	// send email
 	one_time, err := GenerateOneTimeToken(32, uint(authUser.ID))
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -332,7 +404,12 @@ func ChangePasswordRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	queries := models.New(database.DB)
-	AuthLogout(queries, ctx, w, r)
+
+	code, errstring = AuthLogout(queries, ctx, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 
 	SendData(status, map[string]interface{}{"message": "email sent"}, w, r)
 
@@ -340,7 +417,7 @@ func ChangePasswordRequest(w http.ResponseWriter, r *http.Request) {
 
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -352,7 +429,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	user_id, err := VerifyToken(token)
 
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "Invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
 		return
 	}
 
@@ -361,38 +438,45 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	u, err := queries.UserRead(ctx, int64(user_id))
 
-	if err != nil {
-		SendData(http.StatusNotFound, map[string]string{"error": "user not found"}, w, r)
+	code, errstring := SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
 	user, err := queries.UserLoginRead(ctx, u.Email)
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
 	// get data
 	data := make(map[string]string)
-	GetData(&data, w, r)
+	code, errstring = GetData(&data, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 
 	check := CheckPasswordHash(data["old_password"], user.Password)
 
 	if !check {
-		SendData(http.StatusBadRequest, map[string]string{"error": "Invalid password"}, w, r)
+		SendData(http.StatusBadRequest, map[string]string{"error": "invalid password"}, w, r)
 		return
 	}
 
 	if data["new_password"] != data["confirm_password"] {
-		SendData(http.StatusBadRequest, map[string]string{"error": "Invalid password"}, w, r)
+		SendData(http.StatusBadRequest, map[string]string{"error": "invalid password"}, w, r)
 		return
 	}
 
 	hash, err := HashPassword(data["new_password"])
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -402,19 +486,23 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	Logging(queries, ctx, "user", "update", user.ID, int64(user_id), w, r)
+	status := Logging(queries, ctx, "user", "update", user.ID, int64(user_id), w, r)
+	if status != http.StatusOK {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"message": "password updated successfully"}, w, r)
 }
 
 func ResetPasswordRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -432,8 +520,9 @@ func ResetPasswordRequest(w http.ResponseWriter, r *http.Request) {
 	// send email
 	one_time, err := GenerateOneTimeToken(32, uint(authUser.ID))
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -443,14 +532,17 @@ func ResetPasswordRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	queries := models.New(database.DB)
-	AuthLogout(queries, ctx, w, r)
-
+	code, errstring = AuthLogout(queries, ctx, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 	SendData(status, map[string]interface{}{"message": "email sent"}, w, r)
 }
 
 func ResetPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -462,7 +554,7 @@ func ResetPassword(w http.ResponseWriter, r *http.Request) {
 	user_id, err := VerifyToken(token)
 
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "Invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
 		return
 	}
 
@@ -471,31 +563,38 @@ func ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	u, err := queries.UserRead(ctx, int64(user_id))
 
-	if err != nil {
-		SendData(http.StatusNotFound, map[string]string{"error": "user not found"}, w, r)
+	code, errstring := SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
 	user, err := queries.UserLoginRead(ctx, u.Email)
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
 	// get data
 	data := make(map[string]string)
-	GetData(&data, w, r)
+	code, errstring = GetData(&data, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 
 	if data["new_password"] != data["confirm_password"] {
-		SendData(http.StatusBadRequest, map[string]string{"error": "Invalid password"}, w, r)
+		SendData(http.StatusBadRequest, map[string]string{"error": "invalid password"}, w, r)
 		return
 	}
 
 	hash, err := HashPassword(data["new_password"])
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -505,19 +604,23 @@ func ResetPassword(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	Logging(queries, ctx, "user", "update", user.ID, int64(user_id), w, r)
+	status := Logging(queries, ctx, "user", "update", user.ID, int64(user_id), w, r)
+	if status != http.StatusOK {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"message": "password updated successfully"}, w, r)
 }
 
 func DeleteUserRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -535,8 +638,9 @@ func DeleteUserRequest(w http.ResponseWriter, r *http.Request) {
 	// send email
 	one_time, err := GenerateOneTimeToken(32, uint(authUser.ID))
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -546,14 +650,17 @@ func DeleteUserRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	queries := models.New(database.DB)
-	AuthLogout(queries, ctx, w, r)
-
+	code, errstring = AuthLogout(queries, ctx, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 	SendData(status, map[string]interface{}{"message": "email sent"}, w, r)
 }
 
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -565,7 +672,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	user_id, err := VerifyToken(token)
 
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "Invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
 		return
 	}
 
@@ -574,12 +681,16 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	err = queries.UserDelete(ctx, int64(user_id))
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	Logging(queries, ctx, "user", "delete", 0, int64(user_id), w, r)
+	status := Logging(queries, ctx, "user", "delete", 0, int64(user_id), w, r)
+	if status != http.StatusOK {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"message": "user account deleted"}, w, r)
 }
@@ -587,7 +698,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 // require admin
 func IsActiveChange(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -595,8 +706,9 @@ func IsActiveChange(w http.ResponseWriter, r *http.Request) {
 
 	user_id, err := strconv.ParseInt(queryParams.Get("user"), 10, 64)
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -607,7 +719,6 @@ func IsActiveChange(w http.ResponseWriter, r *http.Request) {
 
 	if auth == nil {
 		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
-
 		return
 	}
 
@@ -615,12 +726,17 @@ func IsActiveChange(w http.ResponseWriter, r *http.Request) {
 
 	// get data
 	data := make(map[string]string)
-	GetData(&data, w, r)
+	code, errstring = GetData(&data, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 
 	status, err := strconv.ParseBool(data["active"])
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -630,19 +746,24 @@ func IsActiveChange(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	Logging(queries, ctx, "user", "update", user.ID, authUser.ID, w, r)
+	code = Logging(queries, ctx, "user", "update", user.ID, authUser.ID, w, r)
+
+	if code != http.StatusOK {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"message": "user active status updated successfully"}, w, r)
 }
 
 func IsStaffChange(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -650,8 +771,9 @@ func IsStaffChange(w http.ResponseWriter, r *http.Request) {
 
 	user_id, err := strconv.ParseInt(queryParams.Get("user"), 10, 64)
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -669,12 +791,17 @@ func IsStaffChange(w http.ResponseWriter, r *http.Request) {
 
 	// get data
 	data := make(map[string]string)
-	GetData(&data, w, r)
+	code, errstring = GetData(&data, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
+		return
+	}
 
 	status, err := strconv.ParseBool(data["staff"])
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = InternalServerErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
@@ -684,12 +811,16 @@ func IsStaffChange(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring = SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
-	Logging(queries, ctx, "user", "update", user.ID, authUser.ID, w, r)
+	code = Logging(queries, ctx, "user", "update", user.ID, authUser.ID, w, r)
+	if code != http.StatusOK {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"message": "user staff status updated successfully"}, w, r)
 }

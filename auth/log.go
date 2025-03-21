@@ -9,8 +9,7 @@ import (
 
 func LogList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "Method Not Allowed"}, w, r)
-
+		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
 		return
 	}
 
@@ -21,7 +20,6 @@ func LogList(w http.ResponseWriter, r *http.Request) {
 
 	if auth == nil {
 		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
-
 		return
 	}
 
@@ -29,8 +27,9 @@ func LogList(w http.ResponseWriter, r *http.Request) {
 
 	logs, err := queries.LogList(ctx)
 
-	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+	code, errstring := SqlErrorHandler(err, w, r)
+	if code != http.StatusOK {
+		SendData(code, map[string]string{"error": errstring}, w, r)
 		return
 	}
 
