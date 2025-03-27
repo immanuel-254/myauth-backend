@@ -15,23 +15,26 @@ import (
 	"github.com/resend/resend-go/v2"
 )
 
-func GetData(data *map[string]string, w http.ResponseWriter, r *http.Request) (int, string) {
+func GetData(data *map[string]string, w http.ResponseWriter, r *http.Request) error {
 	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
 		if errors.Is(err, io.EOF) {
-			return http.StatusBadRequest, "empty request body"
+			SendData(http.StatusBadRequest, map[string]string{"error": "empty request body"}, w, r)
+			return err
 		}
 		if _, ok := err.(*json.SyntaxError); ok {
-			return http.StatusBadRequest, "invalid json syntax"
+			SendData(http.StatusBadRequest, map[string]string{"error": "invalid json syntax"}, w, r)
+			return err
 		}
-		return http.StatusBadRequest, strings.ToLower(err.Error())
+		SendData(http.StatusBadRequest, map[string]string{"error": strings.ToLower(err.Error())}, w, r)
+		return err
 	}
 
-	// Check if the decoded data is empty
-	if data == nil || len(*data) == 0 {
-		return http.StatusBadRequest, strings.ToLower("no data provided")
+	if data == nil || len(*data) == 0 { // Check if the decoded data is empty
+		SendData(http.StatusBadRequest, map[string]string{"error": strings.ToLower("no data provided")}, w, r)
+		return errors.New("no data provided")
 	}
 
-	return http.StatusOK, ""
+	return nil
 }
 
 func SendData(status int, data any, w http.ResponseWriter, r *http.Request) {
@@ -40,8 +43,7 @@ func SendData(status int, data any, w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(data)
 }
 
-func SendEmail(email, subject, link string, template func(route string) string, w http.ResponseWriter, r *http.Request) int {
-	// send email
+func SendEmail(email, subject, link string, template func(route string) string, w http.ResponseWriter, r *http.Request) error {
 	client := resend.NewClient(os.Getenv("RESENDAPIKEY"))
 
 	params := &resend.SendEmailRequest{
@@ -54,13 +56,13 @@ func SendEmail(email, subject, link string, template func(route string) string, 
 	_, err := client.Emails.Send(params)
 	if err != nil {
 		SendData(http.StatusInternalServerError, map[string]string{"error": strings.ToLower(err.Error())}, w, r)
-		return http.StatusInternalServerError
+		return err
 	}
 
-	return http.StatusOK
+	return err
 }
 
-func Logging(queries *models.Queries, ctx context.Context, dbtable, action string, objectId, userId int64, w http.ResponseWriter, r *http.Request) int {
+func Logging(queries *models.Queries, ctx context.Context, dbtable, action string, objectId, userId int64, w http.ResponseWriter, r *http.Request) error {
 	err := queries.LogCreate(ctx, models.LogCreateParams{
 		DbTable:   dbtable,
 		Action:    action,
@@ -68,30 +70,25 @@ func Logging(queries *models.Queries, ctx context.Context, dbtable, action strin
 		UserID:    userId,
 		CreatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
-
-	code, errstring := SqlErrorHandler(err, w, r)
-	if code != http.StatusOK {
-		SendData(code, map[string]string{"error": errstring}, w, r)
-		return code
+	err = SqlErrorHandler(err, w, r)
+	if err != nil {
+		return err
 	}
 
-	return http.StatusOK
+	return nil
 }
 
-func AuthLogout(queries *models.Queries, ctx context.Context, w http.ResponseWriter, r *http.Request) (int, string) {
+func AuthLogout(queries *models.Queries, ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	session, err := queries.SessionRead(ctx, r.Header.Get("auth"))
-
-	code, errstring := SqlErrorHandler(err, w, r)
-	if code != http.StatusOK {
-		return code, errstring
+	err = SqlErrorHandler(err, w, r)
+	if err != nil {
+		return err
 	}
 
-	// delete session
-	err = queries.SessionDelete(ctx, r.Header.Get("auth"))
-
-	code, errstring = SqlErrorHandler(err, w, r)
-	if code != http.StatusOK {
-		return code, errstring
+	err = queries.SessionDelete(ctx, r.Header.Get("auth")) // delete session
+	err = SqlErrorHandler(err, w, r)
+	if err != nil {
+		return err
 	}
 
 	err = queries.LogCreate(ctx, models.LogCreateParams{
@@ -101,37 +98,33 @@ func AuthLogout(queries *models.Queries, ctx context.Context, w http.ResponseWri
 		UserID:    session.UserID,
 		CreatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
-
-	code, errstring = SqlErrorHandler(err, w, r)
-	if code != http.StatusOK {
-		return code, errstring
-	}
-
-	return http.StatusOK, ""
-
-}
-
-func InternalServerErrorHandler(err error, w http.ResponseWriter, r *http.Request) (int, string) {
+	err = SqlErrorHandler(err, w, r)
 	if err != nil {
-		return http.StatusInternalServerError, err.Error()
+		return err
 	}
 
-	return http.StatusOK, ""
+	return nil
 }
 
-func SqlErrorHandler(err error, w http.ResponseWriter, r *http.Request) (int, string) {
+func InternalServerErrorHandler(err error, w http.ResponseWriter, r *http.Request) error {
+	if err != nil {
+		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+		return err
+	}
+
+	return nil
+}
+
+func SqlErrorHandler(err error, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return http.StatusNoContent, "no data"
-		case sql.ErrConnDone:
-			return http.StatusInternalServerError, err.Error()
-		case sql.ErrTxDone:
-			return http.StatusInternalServerError, err.Error()
+			SendData(http.StatusNoContent, map[string]string{"error": "no data"}, w, r)
+			return err
 		default:
-			return http.StatusInternalServerError, err.Error()
+			SendData(http.StatusInternalServerError, map[string]string{"error": strings.ToLower(err.Error())}, w, r)
+			return err
 		}
 	}
-
-	return http.StatusOK, ""
+	return nil
 }

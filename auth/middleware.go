@@ -19,11 +19,8 @@ func ReadUser(next http.Handler) http.Handler {
 		queries := models.New(database.DB)
 		ctx := r.Context()
 
-		// 1. Check for token in Authorization header
-		token := r.Header.Get("auth")
-
-		// 2. If no token found in either place, return error
-		if token == "" {
+		token := r.Header.Get("auth") // 1. Check for token in Authorization header
+		if token == "" {              // 2. If no token found in either place, return error
 			ctx = context.WithValue(ctx, Current_user, models.AuthUserReadRow{ID: 0}) // Store user in context
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
@@ -31,23 +28,18 @@ func ReadUser(next http.Handler) http.Handler {
 		}
 
 		session, err := queries.SessionRead(ctx, token)
-
-		code, errstring := SqlErrorHandler(err, w, r)
-		if code != http.StatusOK {
-			SendData(code, map[string]string{"error": errstring}, w, r)
+		err = SqlErrorHandler(err, w, r)
+		if err != nil {
 			return
 		}
-
 		if session.CreatedAt.Time.AddDate(0, 0, 30).Unix() < time.Now().Unix() {
 			SendData(http.StatusBadRequest, map[string]any{"error": "session has expired"}, w, r)
 			return
 		}
 
 		user, err := queries.AuthUserRead(ctx, session.UserID)
-
-		code, errstring = SqlErrorHandler(err, w, r)
-		if code != http.StatusOK {
-			SendData(code, map[string]string{"error": errstring}, w, r)
+		err = SqlErrorHandler(err, w, r)
+		if err != nil {
 			return
 		}
 
@@ -58,7 +50,6 @@ func ReadUser(next http.Handler) http.Handler {
 
 		ctx = context.WithValue(ctx, Current_user, user) // Store user in context
 		r = r.WithContext(ctx)
-
 		next.ServeHTTP(w, r)
 	})
 }
@@ -68,33 +59,25 @@ func RequireAuth(next http.Handler) http.Handler {
 		queries := models.New(database.DB)
 		ctx := r.Context()
 
-		// 1. Check for token in Authorization header
-		token := r.Header.Get("auth")
-
-		// 2. If no token found in either place, return error
-		if token == "" {
+		token := r.Header.Get("auth") // 1. Check for token in Authorization header
+		if token == "" {              // 2. If no token found in either place, return error
 			SendData(http.StatusForbidden, map[string]any{"error": "missing auth token"}, w, r)
 			return
 		}
 
 		session, err := queries.SessionRead(ctx, token)
-
-		code, errstring := SqlErrorHandler(err, w, r)
-		if code != http.StatusOK {
-			SendData(code, map[string]string{"error": errstring}, w, r)
+		err = SqlErrorHandler(err, w, r)
+		if err != nil {
 			return
 		}
-
 		if session.CreatedAt.Time.AddDate(0, 0, 30).Unix() < time.Now().Unix() {
 			SendData(http.StatusBadRequest, map[string]any{"error": "session has expired"}, w, r)
 			return
 		}
 
 		user, err := queries.AuthUserRead(ctx, session.UserID)
-
-		code, errstring = SqlErrorHandler(err, w, r)
-		if code != http.StatusOK {
-			SendData(code, map[string]string{"error": errstring}, w, r)
+		err = SqlErrorHandler(err, w, r)
+		if err != nil {
 			return
 		}
 		if !user.Isactive.Bool {
@@ -104,7 +87,6 @@ func RequireAuth(next http.Handler) http.Handler {
 
 		ctx = context.WithValue(ctx, Current_user, user) // Store user in context
 		r = r.WithContext(ctx)
-
 		next.ServeHTTP(w, r)
 	})
 }
@@ -114,33 +96,25 @@ func RequireStaff(next http.Handler) http.Handler {
 		queries := models.New(database.DB)
 		ctx := r.Context()
 
-		// 1. Check for token in Authorization header
-		token := r.Header.Get("auth")
-
-		// 2. If no token found in either place, return error
-		if token == "" {
+		token := r.Header.Get("auth") // 1. Check for token in Authorization header
+		if token == "" {              // 2. If no token found in either place, return error
 			SendData(http.StatusForbidden, map[string]any{"error": "missing auth token"}, w, r)
 			return
 		}
 
 		session, err := queries.SessionRead(ctx, r.Header.Get("auth"))
-
-		code, errstring := SqlErrorHandler(err, w, r)
-		if code != http.StatusOK {
-			SendData(code, map[string]string{"error": errstring}, w, r)
+		err = SqlErrorHandler(err, w, r)
+		if err != nil {
 			return
 		}
-
 		if session.CreatedAt.Time.AddDate(0, 0, 30).Unix() < time.Now().Unix() {
 			SendData(http.StatusBadRequest, map[string]any{"error": "session has expired"}, w, r)
 			return
 		}
 
 		user, err := queries.AuthUserRead(ctx, session.UserID)
-
-		code, errstring = SqlErrorHandler(err, w, r)
-		if code != http.StatusOK {
-			SendData(code, map[string]string{"error": errstring}, w, r)
+		err = SqlErrorHandler(err, w, r)
+		if err != nil {
 			return
 		}
 
@@ -148,7 +122,6 @@ func RequireStaff(next http.Handler) http.Handler {
 			SendData(http.StatusForbidden, map[string]any{"error": "invalid user"}, w, r)
 			return
 		}
-
 		if !user.Isstaff.Bool && !user.Isadmin.Bool {
 			SendData(http.StatusForbidden, map[string]any{"error": "invalid user"}, w, r)
 			return
@@ -156,7 +129,6 @@ func RequireStaff(next http.Handler) http.Handler {
 
 		ctx = context.WithValue(ctx, Current_user, user) // Store user in context
 		r = r.WithContext(ctx)
-
 		next.ServeHTTP(w, r)
 	})
 }
@@ -166,33 +138,25 @@ func RequireAdmin(next http.Handler) http.Handler {
 		queries := models.New(database.DB)
 		ctx := r.Context()
 
-		// 1. Check for token in Authorization header
-		token := r.Header.Get("auth")
-
-		// 2. If no token found in either place, return error
-		if token == "" {
+		token := r.Header.Get("auth") // 1. Check for token in Authorization header
+		if token == "" {              // 2. If no token found in either place, return error
 			SendData(http.StatusForbidden, map[string]any{"error": "missing auth token"}, w, r)
 			return
 		}
 
 		session, err := queries.SessionRead(ctx, token)
-
-		code, errstring := SqlErrorHandler(err, w, r)
-		if code != http.StatusOK {
-			SendData(code, map[string]string{"error": errstring}, w, r)
+		err = SqlErrorHandler(err, w, r)
+		if err != nil {
 			return
 		}
-
 		if session.CreatedAt.Time.AddDate(0, 0, 30).Unix() < time.Now().Unix() {
 			SendData(http.StatusBadRequest, map[string]any{"error": "session has expired"}, w, r)
 			return
 		}
 
 		user, err := queries.AuthUserRead(ctx, session.UserID)
-
-		code, errstring = SqlErrorHandler(err, w, r)
-		if code != http.StatusOK {
-			SendData(code, map[string]string{"error": errstring}, w, r)
+		err = SqlErrorHandler(err, w, r)
+		if err != nil {
 			return
 		}
 
@@ -200,7 +164,6 @@ func RequireAdmin(next http.Handler) http.Handler {
 			SendData(http.StatusForbidden, map[string]any{"error": "invalid user"}, w, r)
 			return
 		}
-
 		if !user.Isadmin.Bool {
 			SendData(http.StatusForbidden, map[string]any{"error": "invalid user"}, w, r)
 			return
@@ -208,7 +171,6 @@ func RequireAdmin(next http.Handler) http.Handler {
 
 		ctx = context.WithValue(ctx, Current_user, user) // Store user in context
 		r = r.WithContext(ctx)
-
 		next.ServeHTTP(w, r)
 	})
 }
@@ -216,11 +178,9 @@ func RequireAdmin(next http.Handler) http.Handler {
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-
 		// Custom response writer to capture status code
 		lrw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(lrw, r)
-
 		// Log details
 		log.Printf("%s %s %d %s", r.Method, r.URL.Path, lrw.statusCode, time.Since(start))
 	})

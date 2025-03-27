@@ -17,23 +17,19 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	queries := models.New(database.DB)
 	ctx := r.Context()
 
-	// get data
-	data := make(map[string]string)
-	code, errstring := GetData(&data, w, r)
-	if code != http.StatusOK {
-		SendData(code, map[string]string{"error": errstring}, w, r)
+	data := make(map[string]string) // get data
+	err := GetData(&data, w, r)
+	if err != nil {
 		return
 	}
 
 	key, code, err := AuthLogin(queries, ctx, data)
-
 	if code != http.StatusInternalServerError && err != nil {
 		SendData(code, map[string]string{"error": strings.ToLower(err.Error())}, w, r)
 		return
 	} else {
-		code, errstring = SqlErrorHandler(err, w, r)
-		if code != http.StatusOK {
-			SendData(code, map[string]string{"error": errstring}, w, r)
+		err = SqlErrorHandler(err, w, r)
+		if err != nil {
 			return
 		}
 	}
@@ -50,10 +46,9 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 
 	queries := models.New(database.DB)
 	ctx := r.Context()
-
-	code, errstring := AuthLogout(queries, ctx, w, r)
-	if code != http.StatusOK {
-		SendData(code, map[string]string{"error": errstring}, w, r)
+	err := AuthLogout(queries, ctx, w, r)
+	if err != nil {
+		return
 	}
 
 	resp := map[string]interface{}{"message": "user logged out"}
@@ -68,9 +63,7 @@ func SessionList(w http.ResponseWriter, r *http.Request) {
 
 	queries := models.New(database.DB)
 	ctx := r.Context()
-
 	auth := ctx.Value(Current_user)
-
 	if auth == nil {
 		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
 		return
@@ -79,14 +72,15 @@ func SessionList(w http.ResponseWriter, r *http.Request) {
 	authUser := auth.(models.AuthUserReadRow)
 
 	sessions, err := queries.SessionList(ctx)
-
-	code, errstring := SqlErrorHandler(err, w, r)
-	if code != http.StatusOK {
-		SendData(code, map[string]string{"error": errstring}, w, r)
+	err = SqlErrorHandler(err, w, r)
+	if err != nil {
 		return
 	}
 
-	Logging(queries, ctx, "session", "list", 0, authUser.ID, w, r)
+	err = Logging(queries, ctx, "session", "list", 0, authUser.ID, w, r)
+	if err != nil {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"sessions": sessions}, w, r)
 }

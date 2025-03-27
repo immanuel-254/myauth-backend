@@ -15,9 +15,7 @@ func LogList(w http.ResponseWriter, r *http.Request) {
 
 	queries := models.New(database.DB)
 	ctx := r.Context()
-
 	auth := ctx.Value(Current_user)
-
 	if auth == nil {
 		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
 		return
@@ -26,14 +24,15 @@ func LogList(w http.ResponseWriter, r *http.Request) {
 	authUser := auth.(models.AuthUserReadRow)
 
 	logs, err := queries.LogList(ctx)
-
-	code, errstring := SqlErrorHandler(err, w, r)
-	if code != http.StatusOK {
-		SendData(code, map[string]string{"error": errstring}, w, r)
+	err = SqlErrorHandler(err, w, r)
+	if err != nil {
 		return
 	}
 
-	Logging(queries, ctx, "log", "list", 0, authUser.ID, w, r)
+	err = Logging(queries, ctx, "log", "list", 0, authUser.ID, w, r)
+	if err != nil {
+		return
+	}
 
 	SendData(http.StatusOK, map[string]interface{}{"logs": logs}, w, r)
 }

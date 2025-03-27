@@ -125,7 +125,6 @@ var (
 
 func AuthLogin(queries *models.Queries, ctx context.Context, data map[string]string) (string, int, error) {
 	user, err := queries.UserLoginRead(ctx, data["email"])
-
 	if err != nil {
 		return "", http.StatusInternalServerError, err
 	}
@@ -137,13 +136,11 @@ func AuthLogin(queries *models.Queries, ctx context.Context, data map[string]str
 		UserID:    0,
 		CreatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
-
 	if err != nil {
 		return "", http.StatusInternalServerError, err
 	}
 
 	check := CheckPasswordHash(data["password"], user.Password)
-
 	if !check {
 		return "", http.StatusBadRequest, fmt.Errorf("invalid credentials")
 	}
@@ -152,13 +149,11 @@ func AuthLogin(queries *models.Queries, ctx context.Context, data map[string]str
 	key := base64.StdEncoding.EncodeToString(GenerateAESKey())
 
 	// create session
-
 	session, err := queries.SessionCreate(ctx, models.SessionCreateParams{
 		Key:       key,
 		UserID:    user.ID,
 		CreatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
-
 	if err != nil {
 		return "", http.StatusInternalServerError, err
 	}
@@ -170,7 +165,6 @@ func AuthLogin(queries *models.Queries, ctx context.Context, data map[string]str
 		UserID:    session.UserID,
 		CreatedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
-
 	if err != nil {
 		return "", http.StatusInternalServerError, err
 	}
