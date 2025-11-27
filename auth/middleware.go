@@ -33,7 +33,7 @@ func ReadUser(next http.Handler) http.Handler {
 			return
 		}
 		if session.CreatedAt.Time.AddDate(0, 0, 30).Unix() < time.Now().Unix() {
-			SendData(http.StatusBadRequest, map[string]any{"error": "session has expired"}, w, r)
+			SendData(http.StatusBadRequest, [][]string{{"error"}, {"session has expired"}}, w, r)
 			return
 		}
 
@@ -44,7 +44,7 @@ func ReadUser(next http.Handler) http.Handler {
 		}
 
 		if !user.Isactive.Bool {
-			SendData(http.StatusForbidden, map[string]any{"error": "inactive user"}, w, r)
+			SendData(http.StatusForbidden, [][]string{{"error"}, {"inactive user"}}, w, r)
 			return
 		}
 
@@ -61,7 +61,7 @@ func RequireAuth(next http.Handler) http.Handler {
 
 		token := r.Header.Get("auth") // 1. Check for token in Authorization header
 		if token == "" {              // 2. If no token found in either place, return error
-			SendData(http.StatusForbidden, map[string]any{"error": "missing auth token"}, w, r)
+			SendData(http.StatusForbidden, [][]string{{"error"}, {"missing auth token"}}, w, r)
 			return
 		}
 
@@ -71,7 +71,7 @@ func RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 		if session.CreatedAt.Time.AddDate(0, 0, 30).Unix() < time.Now().Unix() {
-			SendData(http.StatusBadRequest, map[string]any{"error": "session has expired"}, w, r)
+			SendData(http.StatusBadRequest, [][]string{{"error"}, {"session has expired"}}, w, r)
 			return
 		}
 
@@ -81,7 +81,7 @@ func RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 		if !user.Isactive.Bool {
-			SendData(http.StatusForbidden, map[string]any{"error": "inactive user"}, w, r)
+			SendData(http.StatusForbidden, [][]string{{"error"}, {"inactive user"}}, w, r)
 			return
 		}
 
@@ -98,7 +98,7 @@ func RequireStaff(next http.Handler) http.Handler {
 
 		token := r.Header.Get("auth") // 1. Check for token in Authorization header
 		if token == "" {              // 2. If no token found in either place, return error
-			SendData(http.StatusForbidden, map[string]any{"error": "missing auth token"}, w, r)
+			SendData(http.StatusForbidden, [][]string{{"error"}, {"missing auth token"}}, w, r)
 			return
 		}
 
@@ -108,7 +108,7 @@ func RequireStaff(next http.Handler) http.Handler {
 			return
 		}
 		if session.CreatedAt.Time.AddDate(0, 0, 30).Unix() < time.Now().Unix() {
-			SendData(http.StatusBadRequest, map[string]any{"error": "session has expired"}, w, r)
+			SendData(http.StatusBadRequest, [][]string{{"error"}, {"session has expired"}}, w, r)
 			return
 		}
 
@@ -119,11 +119,11 @@ func RequireStaff(next http.Handler) http.Handler {
 		}
 
 		if !user.Isactive.Bool {
-			SendData(http.StatusForbidden, map[string]any{"error": "invalid user"}, w, r)
+			SendData(http.StatusForbidden, [][]string{{"error"}, {"invalid user"}}, w, r)
 			return
 		}
 		if !user.Isstaff.Bool && !user.Isadmin.Bool {
-			SendData(http.StatusForbidden, map[string]any{"error": "invalid user"}, w, r)
+			SendData(http.StatusForbidden, [][]string{{"error"}, {"invalid user"}}, w, r)
 			return
 		}
 
@@ -140,7 +140,7 @@ func RequireAdmin(next http.Handler) http.Handler {
 
 		token := r.Header.Get("auth") // 1. Check for token in Authorization header
 		if token == "" {              // 2. If no token found in either place, return error
-			SendData(http.StatusForbidden, map[string]any{"error": "missing auth token"}, w, r)
+			SendData(http.StatusForbidden, [][]string{{"error"}, {"missing auth token"}}, w, r)
 			return
 		}
 
@@ -150,7 +150,7 @@ func RequireAdmin(next http.Handler) http.Handler {
 			return
 		}
 		if session.CreatedAt.Time.AddDate(0, 0, 30).Unix() < time.Now().Unix() {
-			SendData(http.StatusBadRequest, map[string]any{"error": "session has expired"}, w, r)
+			SendData(http.StatusBadRequest, [][]string{{"error"}, {"session has expired"}}, w, r)
 			return
 		}
 
@@ -161,11 +161,11 @@ func RequireAdmin(next http.Handler) http.Handler {
 		}
 
 		if !user.Isactive.Bool {
-			SendData(http.StatusForbidden, map[string]any{"error": "invalid user"}, w, r)
+			SendData(http.StatusForbidden, [][]string{{"error"}, {"invalid user"}}, w, r)
 			return
 		}
 		if !user.Isadmin.Bool {
-			SendData(http.StatusForbidden, map[string]any{"error": "invalid user"}, w, r)
+			SendData(http.StatusForbidden, [][]string{{"error"}, {"invalid user"}}, w, r)
 			return
 		}
 

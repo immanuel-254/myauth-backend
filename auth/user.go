@@ -14,7 +14,7 @@ import (
 
 func Signup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -28,7 +28,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if data["password"] != data["confirm-password"] { // check if password match
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid password"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid password"}}, w, r)
 		return
 	}
 
@@ -67,14 +67,14 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := map[string]interface{}{"message": "signup successful"}
+	resp := [][]string{{"message"}, {"signup successful"}}
 	SendData(http.StatusOK, resp, w, r)
 
 }
 
 func ActivateEmail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -82,7 +82,7 @@ func ActivateEmail(w http.ResponseWriter, r *http.Request) {
 	token := queryParams.Get("token")
 	user_id, err := VerifyToken(token) // verify token
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid auth token"}}, w, r)
 		return
 	}
 
@@ -104,13 +104,13 @@ func ActivateEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := map[string]interface{}{"message": "email has been verified"}
+	resp := [][]string{{"message"}, {"email has been verified"}}
 	SendData(http.StatusOK, resp, w, r)
 }
 
 func UserRead(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -122,7 +122,7 @@ func UserRead(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if user_id == 0 {
-		SendData(http.StatusNotFound, map[string]string{"error": "user not found"}, w, r)
+		SendData(http.StatusNotFound, [][]string{{"error"}, {"user not found"}}, w, r)
 		return
 	}
 
@@ -130,7 +130,7 @@ func UserRead(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	auth := ctx.Value(Current_user)
 	if auth == nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {"there is no current user"}}, w, r)
 		return
 	}
 
@@ -142,35 +142,51 @@ func UserRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userdata := [][]string{{"id", "email", "created_at", "updated_at"}, {
+		strconv.FormatInt(user.ID, 10),
+		user.Email,
+		user.CreatedAt.Time.String(),
+		user.UpdatedAt.Time.String(),
+	}}
+
 	err = Logging(queries, ctx, "user", "read", user.ID, authUser.ID, w, r)
 	if err != nil {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"user": user}, w, r)
+	SendData(http.StatusOK, userdata, w, r)
 }
 
 func AuthUserRead(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
 	ctx := r.Context()
 	auth := ctx.Value(Current_user)
 	if auth == nil {
-		SendData(http.StatusNotFound, map[string]string{"error": "there is no current user"}, w, r)
+		SendData(http.StatusNotFound, [][]string{{"error"}, {"there is no current user"}}, w, r)
 		return
 	}
 
-	authUser := auth.(models.AuthUserReadRow)
+	user := auth.(models.AuthUserReadRow)
+	userdata := [][]string{{"id", "email", "is_active", "is_staff", "is_admin", "created_at", "updated_at"}, {
+		strconv.FormatInt(user.ID, 10),
+		user.Email,
+		strconv.FormatBool(user.Isactive.Bool),
+		strconv.FormatBool(user.Isstaff.Bool),
+		strconv.FormatBool(user.Isadmin.Bool),
+		user.CreatedAt.Time.String(),
+		user.UpdatedAt.Time.String(),
+	}}
 
-	SendData(http.StatusOK, map[string]interface{}{"current_user": authUser}, w, r)
+	SendData(http.StatusOK, userdata, w, r)
 }
 
 func UserList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -178,7 +194,7 @@ func UserList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	auth := ctx.Value(Current_user)
 	if auth == nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {"there is no current user"}}, w, r)
 		return
 	}
 
@@ -190,17 +206,34 @@ func UserList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var user_s [][]string
+	header := []string{"id", "email", "is_active", "is_staff", "is_admin", "created_at", "updated_at"}
+
+	user_s = append(user_s, header)
+	for _, user := range users {
+		row := []string{
+			strconv.FormatInt(user.ID, 10),
+			user.Email,
+			strconv.FormatBool(user.Isactive.Bool),
+			strconv.FormatBool(user.Isstaff.Bool),
+			strconv.FormatBool(user.Isadmin.Bool),
+			user.CreatedAt.Time.String(),
+			user.UpdatedAt.Time.String(),
+		}
+		user_s = append(user_s, row)
+	}
+
 	err = Logging(queries, ctx, "user", "list", 0, authUser.ID, w, r)
 	if err != nil {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"users": users}, w, r)
+	SendData(http.StatusOK, user_s, w, r)
 }
 
 func ChangeEmailRequest(w http.ResponseWriter, r *http.Request) { // Require auth
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -213,14 +246,14 @@ func ChangeEmailRequest(w http.ResponseWriter, r *http.Request) { // Require aut
 	ctx := r.Context()
 	auth := ctx.Value(Current_user)
 	if auth == nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {"there is no current user"}}, w, r)
 		return
 	}
 
 	authUser := auth.(models.AuthUserReadRow)
 
 	if data["email"] != authUser.Email {
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid email"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid email"}}, w, r)
 		return
 	}
 
@@ -242,12 +275,12 @@ func ChangeEmailRequest(w http.ResponseWriter, r *http.Request) { // Require aut
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "email sent"}, w, r)
+	SendData(http.StatusOK, [][]string{{"message"}, {"email sent"}}, w, r)
 }
 
 func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -255,7 +288,7 @@ func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 	token := queryParams.Get("token")
 	user_id, err := VerifyToken(token) // verify token
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid auth token"}}, w, r)
 		return
 	}
 
@@ -270,7 +303,7 @@ func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 
 	usercheck, _ := queries.UserLoginRead(ctx, data["email"])
 	if data["email"] == usercheck.Email {
-		SendData(http.StatusBadRequest, map[string]string{"error": "email already exists"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"email already exists"}}, w, r)
 		return
 	}
 
@@ -310,19 +343,19 @@ func ChangeEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "email updated successfully"}, w, r)
+	SendData(http.StatusOK, [][]string{{"message"}, {"email updated successfully"}}, w, r)
 }
 
 func ChangePasswordRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
 	ctx := r.Context()
 	auth := ctx.Value(Current_user)
 	if auth == nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {"there is no current user"}}, w, r)
 		return
 	}
 
@@ -345,12 +378,12 @@ func ChangePasswordRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "email sent"}, w, r)
+	SendData(http.StatusOK, [][]string{{"message"}, {"email sent"}}, w, r)
 }
 
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -358,7 +391,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	token := queryParams.Get("token")
 	user_id, err := VerifyToken(token) // verify token
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid auth token"}}, w, r)
 		return
 	}
 
@@ -384,12 +417,12 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	check := CheckPasswordHash(data["old_password"], user.Password)
 	if !check {
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid password"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid password"}}, w, r)
 		return
 	}
 
 	if data["new_password"] != data["confirm_password"] {
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid password"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid password"}}, w, r)
 		return
 	}
 
@@ -414,19 +447,19 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "password updated successfully"}, w, r)
+	SendData(http.StatusOK, [][]string{{"message"}, {"password updated successfully"}}, w, r)
 }
 
 func ResetPasswordRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
 	ctx := r.Context()
 	auth := ctx.Value(Current_user)
 	if auth == nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {"there is no current user"}}, w, r)
 		return
 	}
 
@@ -449,12 +482,12 @@ func ResetPasswordRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "email sent"}, w, r)
+	SendData(http.StatusOK, [][]string{{"message"}, {"email sent"}}, w, r)
 }
 
 func ResetPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -462,7 +495,7 @@ func ResetPassword(w http.ResponseWriter, r *http.Request) {
 	token := queryParams.Get("token")
 	user_id, err := VerifyToken(token) // verify token
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid auth token"}}, w, r)
 		return
 	}
 
@@ -488,7 +521,7 @@ func ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if data["new_password"] != data["confirm_password"] {
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid password"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid password"}}, w, r)
 		return
 	}
 
@@ -513,19 +546,19 @@ func ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "password updated successfully"}, w, r)
+	SendData(http.StatusOK, [][]string{{"message"}, {"password updated successfully"}}, w, r)
 }
 
 func DeleteUserRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
 	ctx := r.Context()
 	auth := ctx.Value(Current_user)
 	if auth == nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {"there is no current user"}}, w, r)
 		return
 	}
 
@@ -549,12 +582,12 @@ func DeleteUserRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "email sent"}, w, r)
+	SendData(http.StatusOK, [][]string{{"message"}, {"email sent"}}, w, r)
 }
 
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -562,7 +595,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	token := queryParams.Get("token")
 	user_id, err := VerifyToken(token) // verify token
 	if err != nil {
-		SendData(http.StatusBadRequest, map[string]string{"error": "invalid auth token"}, w, r)
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {"invalid auth token"}}, w, r)
 		return
 	}
 
@@ -580,13 +613,13 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "user account deleted"}, w, r)
+	SendData(http.StatusOK, [][]string{{"error"}, {"user account deleted"}}, w, r)
 }
 
 // require admin
 func IsActiveChange(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -601,7 +634,7 @@ func IsActiveChange(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	auth := ctx.Value(Current_user)
 	if auth == nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {"there is no current user"}}, w, r)
 		return
 	}
 
@@ -635,12 +668,12 @@ func IsActiveChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "user active status updated successfully"}, w, r)
+	SendData(http.StatusOK, [][]string{{"error"}, {"user active status updated successfully"}}, w, r)
 }
 
 func IsStaffChange(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		SendData(http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"}, w, r)
+		SendData(http.StatusMethodNotAllowed, [][]string{{"error"}, {"method not allowed"}}, w, r)
 		return
 	}
 
@@ -656,7 +689,7 @@ func IsStaffChange(w http.ResponseWriter, r *http.Request) {
 
 	auth := ctx.Value(Current_user)
 	if auth == nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": "there is no current user"}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {"there is no current user"}}, w, r)
 		return
 	}
 
@@ -690,5 +723,5 @@ func IsStaffChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendData(http.StatusOK, map[string]interface{}{"message": "user staff status updated successfully"}, w, r)
+	SendData(http.StatusOK, [][]string{{"message"}, {"user staff status updated successfully"}}, w, r)
 }

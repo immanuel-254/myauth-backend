@@ -3,9 +3,8 @@ package auth
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
+	"encoding/csv"
 	"errors"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -16,31 +15,40 @@ import (
 )
 
 func GetData(data *map[string]string, w http.ResponseWriter, r *http.Request) error {
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		if errors.Is(err, io.EOF) {
-			SendData(http.StatusBadRequest, map[string]string{"error": "empty request body"}, w, r)
-			return err
-		}
-		if _, ok := err.(*json.SyntaxError); ok {
-			SendData(http.StatusBadRequest, map[string]string{"error": "invalid json syntax"}, w, r)
-			return err
-		}
-		SendData(http.StatusBadRequest, map[string]string{"error": strings.ToLower(err.Error())}, w, r)
+	data_, err := csv.NewReader(r.Body).ReadAll()
+
+	if err != nil {
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {strings.ToLower(err.Error())}}, w, r)
 		return err
 	}
 
-	if data == nil || len(*data) == 0 { // Check if the decoded data is empty
-		SendData(http.StatusBadRequest, map[string]string{"error": strings.ToLower("no data provided")}, w, r)
+	if data_ == nil { // Check if the decoded data is empty
+		SendData(http.StatusBadRequest, [][]string{{"error"}, {strings.ToLower("no data provided")}}, w, r)
 		return errors.New("no data provided")
 	}
+
+	authdata := make(map[string]string)
+	headers := data_[0]
+	values := data_[1]
+
+	for i, header := range headers {
+		// Ensure index is valid before accessing values
+		if i < len(values) {
+			authdata[header] = values[i]
+		}
+	}
+
+	*data = authdata
 
 	return nil
 }
 
-func SendData(status int, data any, w http.ResponseWriter, r *http.Request) {
+func SendData(status int, data [][]string, w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(status)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	w.Header().Set("Content-Type", "text/csv")
+	writer := csv.NewWriter(w)
+	_ = writer.WriteAll(data)
+	writer.Flush()
 }
 
 func SendEmail(email, subject, link string, template func(route string) string, w http.ResponseWriter, r *http.Request) error {
@@ -55,7 +63,7 @@ func SendEmail(email, subject, link string, template func(route string) string, 
 
 	_, err := client.Emails.Send(params)
 	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": strings.ToLower(err.Error())}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {strings.ToLower(err.Error())}}, w, r)
 		return err
 	}
 
@@ -108,7 +116,7 @@ func AuthLogout(queries *models.Queries, ctx context.Context, w http.ResponseWri
 
 func InternalServerErrorHandler(err error, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
-		SendData(http.StatusInternalServerError, map[string]string{"error": err.Error()}, w, r)
+		SendData(http.StatusInternalServerError, [][]string{{"error"}, {err.Error()}}, w, r)
 		return err
 	}
 
@@ -119,10 +127,10 @@ func SqlErrorHandler(err error, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			SendData(http.StatusNoContent, map[string]string{"error": "no data"}, w, r)
+			SendData(http.StatusNoContent, [][]string{{"error"}, {"no data"}}, w, r)
 			return err
 		default:
-			SendData(http.StatusInternalServerError, map[string]string{"error": strings.ToLower(err.Error())}, w, r)
+			SendData(http.StatusInternalServerError, [][]string{{"error"}, {strings.ToLower(err.Error())}}, w, r)
 			return err
 		}
 	}
