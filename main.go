@@ -9,8 +9,8 @@ import (
 	"github.com/immanuel-254/myauth-backend/cmd"
 	"github.com/immanuel-254/myauth-backend/database"
 	_ "github.com/joho/godotenv/autoload"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
+	_ "modernc.org/sqlite"
 )
 
 func main() {
