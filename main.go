@@ -1604,7 +1604,7 @@ func CreateAdminUser() {
 
 func main() {
 	// connect to db
-	db, err := sql.Open("sqlite3", os.Getenv("DB"))
+	db, err := sql.Open("sqlite", os.Getenv("DB"))
 	if err != nil {
 		log.Fatalf("%s", err.Error())
 	}
@@ -1623,15 +1623,9 @@ func main() {
 	goose.SetDialect("sqlite3")
 
 	// Apply all "up" migrations
-	err = goose.Up(DB, "auth/migrations")
+	err = goose.Up(DB, "migrations")
 	if err != nil {
 		log.Fatalf("Failed to auth apply migrations: %v", err)
-	}
-
-	// Apply all "up" migrations
-	err = goose.Up(DB, "blog/migrations", goose.WithAllowMissing())
-	if err != nil {
-		log.Fatalf("Failed to blog apply migrations: %v", err)
 	}
 
 	log.Println("Migrations applied successfully!")

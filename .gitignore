@@ -25,6 +25,8 @@ go.work.sum
 .env
 
 data/
+bin/
+*.sqlite
 *.sqlite3
 *_templ.go
 *_templ.txt
