@@ -5,6 +5,5 @@ sql:
     schema: "/migrations"
     gen:
       go:
-        package: "models"
-        out: "models"
-        emit_json_tags: true
+        package: "data"
+        out: "data"

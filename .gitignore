@@ -24,7 +24,7 @@ go.work.sum
 # env file
 .env
 
-models/
+data/
 *.sqlite3
 *_templ.go
 *_templ.txt
